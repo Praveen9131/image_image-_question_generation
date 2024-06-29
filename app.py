@@ -229,5 +229,4 @@ def get_image(image_key):
         logger.error("Image not found")
         return jsonify({"error": "Image not found"}), 404
 
-if __name__ == "__main__":
-    app.run(debug=True)
+
