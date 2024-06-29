@@ -10,7 +10,7 @@ import asyncio
 
 # Load environment variables
 load_dotenv()
- 
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -60,12 +60,11 @@ async def download_and_resize_image(image_url, target_size):
 async def generate_image(prompt: str, retries=3):
     for attempt in range(retries):
         try:
-            response = await openai.Image.create(
-                model="dall-e-3",
-                prompt=prompt,
-                n=1,
-                size="1024x1024"
-            )
+            response = await asyncio.to_thread(openai.Image.create,
+                                               model="dall-e-3",
+                                               prompt=prompt,
+                                               n=1,
+                                               size="1024x1024")
             return response['data'][0]['url']
         except openai.error.OpenAIError as e:
             logger.error(f"Error generating image: {e}")
@@ -235,4 +234,3 @@ async def get_image(image_key):
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0", port=5000)
- 
