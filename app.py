@@ -62,7 +62,7 @@ async def generate_image(prompt: str, retries=3):
         try:
             response = await openai.Image.create(
                 model="dall-e-3",
-                prompt=f"Create an educational illustration about {prompt}. The illustration should be clear and informative.",
+                prompt=prompt,
                 n=1,
                 size="1024x1024"
             )
@@ -235,4 +235,3 @@ async def get_image(image_key):
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0", port=5000)
- 
