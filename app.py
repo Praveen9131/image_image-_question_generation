@@ -29,7 +29,7 @@ image_store = {}
 # Function to download and resize image
 def download_and_resize_image(image_url, target_size):
     try:
-        response = requests.get(image_url)
+        response = requests.get(image_url, timeout=10)
         response.raise_for_status()
         image = Image.open(BytesIO(response.content))
         
