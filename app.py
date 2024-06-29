@@ -45,9 +45,13 @@ async def download_and_resize_image(image_url, target_size):
         resized_size = resized_image.size
         logger.info(f"Resized image size: {resized_size}")
 
+        output = BytesIO()
+        resized_image.save(output, format='PNG')
+        output.seek(0)
+
         # Generate a unique key for storing the image in memory
         image_key = f"image_{len(image_store) + 1}.png"
-        image_store[image_key] = resized_image
+        image_store[image_key] = output
 
         return image_key
     except Exception as e:
@@ -107,7 +111,12 @@ async def generate_mcq_with_image_options(description: str):
 
         return {
             "question": question_section,
-            "options": option_images,  # Store URLs instead of images
+            "options": {
+                "Option 1": option_images[0],
+                "Option 2": option_images[1],
+                "Option 3": option_images[2],
+                "Option 4": option_images[3]
+            },
             "correct_answer": f"Option {correct_answer_index + 1}"
         }
     except IndexError as e:
@@ -151,23 +160,32 @@ async def generate_content():
             mcq_with_images["question_image_url"] = question_image_url
             images_and_questions.append(mcq_with_images)
 
-        # Resize all images (question image and options images) and store in memory
+        # Resize images and store in memory
         resize_tasks = []
 
         for item in images_and_questions:
             question_image_url = item["question_image_url"]
             resize_tasks.append(download_and_resize_image(question_image_url, (750, 319)))
 
-            for option_image_url in item["options"]:
-                resize_tasks.append(download_and_resize_image(option_image_url, (750, 319)))
-
-        resized_image_keys = await asyncio.gather(*resize_tasks)
+        resized_question_images = await asyncio.gather(*resize_tasks[:num_questions])
 
         for i, item in enumerate(images_and_questions):
-            item["question_image_url_resized"] = f"/image/{resized_image_keys[i * 5]}"  # Assuming 5 images per question
+            item["question_image_url_resized"] = f"/image/{resized_question_images[i]}"
 
-            for j, key in enumerate(resized_image_keys[i * 5 + 1:i * 5 + 5]):
-                item["options"][j] = f"/image/{key}"
+        resize_option_tasks = []
+
+        for item in images_and_questions:
+            for option_key in item["options"]:
+                option_image_url = item["options"][option_key]
+                resize_option_tasks.append((option_key, download_and_resize_image(option_image_url, (270, 140))))
+
+        resized_option_images = await asyncio.gather(*[task[1] for task in resize_option_tasks])
+
+        option_counter = 0
+        for item in images_and_questions:
+            for option_key in list(item["options"].keys()):
+                item["options"][option_key + "_resized"] = f"/image/{resized_option_images[option_counter]}"
+                option_counter += 1
 
         return jsonify(images_and_questions)
     except Exception as e:
@@ -175,19 +193,14 @@ async def generate_content():
         return jsonify({"error": "Internal server error"}), 500
 
 @app.route('/image/<image_key>', methods=['GET'])
-async def get_resized_image(image_key):
-    try:
-        if image_key in image_store:
-            resized_image = image_store[image_key]
-            output = BytesIO()
-            resized_image.save(output, format='PNG')
-            output.seek(0)
-            return await send_file(output, mimetype='image/png')
-        else:
-            return jsonify({"error": "Image not found"}), 404
-    except Exception as e:
-        logger.error(f"Error retrieving resized image: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+async def get_image(image_key):
+    if image_key in image_store:
+        return await send_file(
+            BytesIO(image_store[image_key].getvalue()),
+            mimetype='image/png'
+        )
+    else:
+        return jsonify({"error": "Image not found"}), 404
 
 if __name__ == "__main__":
     app.run(debug=True)
