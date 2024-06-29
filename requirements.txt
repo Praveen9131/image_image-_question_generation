@@ -7,3 +7,4 @@ Pillow
 requests
 quart
 aiohttp
+uvicorn
