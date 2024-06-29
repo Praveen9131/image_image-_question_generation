@@ -67,6 +67,26 @@ def generate_image(prompt: str):
         logger.error(f"Error generating image: {e}")
         return None
 
+# Function to describe an image using GPT-4
+def describe_image(image_url: str):
+    image_prompt = [
+        {"role": "system", "content": "You are an expert in describing images."},
+        {"role": "user", "content": f"Describe the content of the following image URL in detail: {image_url}"}
+    ]
+    
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=image_prompt,
+            max_tokens=500,
+            temperature=0.5
+        )
+        description = response.choices[0].message['content'].strip()
+        return description
+    except Exception as e:
+        logger.error(f"Error describing image: {e}")
+        return None
+
 # Function to generate multiple image options based on a prompt
 def generate_image_options(prompts: list):
     options = []
@@ -79,10 +99,10 @@ def generate_image_options(prompts: list):
     return options
 
 # Function to generate a question with image options based on a description
-def generate_mcq_with_image_options(description: str):
+def generate_mcq_with_image_options(topic: str, description: str):
     description_prompt = [
         {"role": "system", "content": "You are an expert in generating educational content."},
-        {"role": "user", "content": f"Generate a multiple-choice question with four options based on the following description. Ensure the options are closely related to the question. Use the following format:\n\n**Question:** [Question based on the description]\n\n**Options:**\n1. [Option 1]\n2. [Option 2]\n3. [Option 3]\n4. [Option 4]\n\n**Correct Answer:** [Correct Option]\n\nDescription: {description}"}
+        {"role": "user", "content": f"Generate a multiple-choice question with four options based on the following description and topic. Ensure the options are closely related to the question. Use the following format:\n\n**Question:** [Question based on the description]\n\n**Options:**\n1. [Option 1]\n2. [Option 2]\n3. [Option 3]\n4. [Option 4]\n\n**Correct Answer:** [Correct Option]\n\nTopic: {topic}\n\nDescription: {description}"}
     ]
     
     try:
@@ -144,13 +164,18 @@ def generate_content():
 
         images_and_questions = []
         for _ in range(num_questions):
-            image_prompt = f"An illustration representing the topic: {topic}"
+            image_prompt = f"An educational illustration representing the topic: {topic}. The illustration should be clear and informative."
             question_image_url = generate_image(image_prompt)
             if not question_image_url:
                 return jsonify({"error": "Failed to generate question image"}), 500
 
-            description = f"This is an illustration representing the topic '{topic}'."
-            mcq_with_images = generate_mcq_with_image_options(description)
+            # Describe the image
+            description = describe_image(question_image_url)
+            if not description:
+                return jsonify({"error": "Failed to describe the image"}), 500
+
+            # Generate MCQ based on the description
+            mcq_with_images = generate_mcq_with_image_options(topic, description)
             if "error" in mcq_with_images:
                 return jsonify(mcq_with_images), 500
 
