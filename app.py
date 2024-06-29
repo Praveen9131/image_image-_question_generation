@@ -59,7 +59,7 @@ def generate_image(prompt: str, retries=3):
         try:
             response = openai.Image.create(
                 model="dall-e-3",
-                prompt=prompt,
+                prompt=f"Create an educational illustration about {prompt}. The illustration should be clear and informative.",
                 n=1,
                 size="1024x1024"
             )
@@ -230,5 +230,5 @@ def get_image(image_key):
         return jsonify({"error": "Image not found"}), 404
 
 if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0", port=5000)
-    
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=False, host="0.0.0.0", port=port)
