@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from PIL import Image
 import requests
 from io import BytesIO
+import time
 
 # Load environment variables
 load_dotenv()
@@ -53,18 +54,22 @@ def download_and_resize_image(image_url, target_size):
         return None
 
 # Function to generate an image using DALL-E 3
-def generate_image(prompt: str):
-    try:
-        response = openai.Image.create(
-            model="dall-e-3",
-            prompt=prompt,
-            n=1,
-            size="1024x1024"
-        )
-        return response['data'][0]['url']
-    except Exception as e:
-        logger.error(f"Error generating image: {e}")
-        return None
+def generate_image(prompt: str, retries=3):
+    for attempt in range(retries):
+        try:
+            response = openai.Image.create(
+                model="dall-e-3",
+                prompt=prompt,
+                n=1,
+                size="1024x1024"
+            )
+            return response['data'][0]['url']
+        except openai.error.OpenAIError as e:
+            logger.error(f"Error generating image: {e}")
+            if "safety system" in str(e):
+                return None
+            time.sleep(2 ** attempt)
+    return None
 
 # Function to describe an image using GPT-4
 def describe_image(image_url: str):
@@ -95,6 +100,7 @@ def generate_image_options(prompts: list):
             options.append(image_url)
         else:
             logger.error(f"Failed to generate image for prompt: {prompt}")
+            options.append("https://via.placeholder.com/270x140.png?text=Image+Unavailable")
     return options
 
 # Function to generate a question with image options based on a description
