@@ -162,11 +162,13 @@ def generate_content():
         num_questions = request.args.get('num_questions')
 
         if not topic or not num_questions:
+            logger.error("Missing 'topic' or 'num_questions' parameter")
             return jsonify({"error": "Missing 'topic' or 'num_questions' parameter"}), 400
 
         try:
             num_questions = int(num_questions)
         except ValueError:
+            logger.error("'num_questions' must be an integer")
             return jsonify({"error": "'num_questions' must be an integer"}), 400
 
         images_and_questions = []
@@ -174,16 +176,19 @@ def generate_content():
             image_prompt = f"An educational illustration representing the topic: {topic}. The illustration should be clear and informative."
             question_image_url = generate_image(image_prompt)
             if not question_image_url:
+                logger.error("Failed to generate question image")
                 return jsonify({"error": "Failed to generate question image"}), 500
 
             # Describe the image
             description = describe_image(question_image_url)
             if not description:
+                logger.error("Failed to describe the image")
                 return jsonify({"error": "Failed to describe the image"}), 500
 
             # Generate MCQ based on the description
             mcq_with_images = generate_mcq_with_image_options(topic, description)
             if "error" in mcq_with_images:
+                logger.error(f"Error in generating MCQ with image options: {mcq_with_images['error']}")
                 return jsonify(mcq_with_images), 500
 
             mcq_with_images["question_image_url"] = question_image_url
@@ -204,7 +209,7 @@ def generate_content():
 
         return jsonify(images_and_questions)
     except Exception as e:
-        logger.error(f"Error generating content: {e}")
+        logger.error(f"Error generating content: {e}", exc_info=True)
         return jsonify({"error": "Internal server error"}), 500
 
 @app.route('/image/<image_key>', methods=['GET'])
@@ -215,6 +220,7 @@ def get_image(image_key):
             mimetype='image/png'
         )
     else:
+        logger.error("Image not found")
         return jsonify({"error": "Image not found"}), 404
 
 if __name__ == "__main__":
