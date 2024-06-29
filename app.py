@@ -230,4 +230,5 @@ def get_image(image_key):
         return jsonify({"error": "Image not found"}), 404
 
 if __name__ == "__main__":
-    app.run(debug=False,host=0.0.0.0)
+    app.run(debug=False, host="0.0.0.0", port=5000)
+    
