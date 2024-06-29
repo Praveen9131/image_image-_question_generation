@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 from PIL import Image
 import requests
 from io import BytesIO
-import base64
 
 # Load environment variables
 load_dotenv()
@@ -160,7 +159,15 @@ def generate_mcq_with_image_options(topic: str, description: str):
 def generate_content():
     try:
         topic = request.args.get('topic')
-        num_questions = int(request.args.get('num_questions'))
+        num_questions = request.args.get('num_questions')
+
+        if not topic or not num_questions:
+            return jsonify({"error": "Missing 'topic' or 'num_questions' parameter"}), 400
+
+        try:
+            num_questions = int(num_questions)
+        except ValueError:
+            return jsonify({"error": "'num_questions' must be an integer"}), 400
 
         images_and_questions = []
         for _ in range(num_questions):
