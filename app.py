@@ -151,18 +151,23 @@ async def generate_content():
             mcq_with_images["question_image_url"] = question_image_url
             images_and_questions.append(mcq_with_images)
 
-        # Resize images and store in memory
+        # Resize all images (question image and options images) and store in memory
         resize_tasks = []
 
         for item in images_and_questions:
             question_image_url = item["question_image_url"]
             resize_tasks.append(download_and_resize_image(question_image_url, (750, 319)))
 
-        resized_question_image_keys = await asyncio.gather(*resize_tasks[:num_questions])
+            for option_image_url in item["options"]:
+                resize_tasks.append(download_and_resize_image(option_image_url, (750, 319)))
+
+        resized_image_keys = await asyncio.gather(*resize_tasks)
 
         for i, item in enumerate(images_and_questions):
-            if i < len(resized_question_image_keys):
-                item["question_image_url_resized"] = f"/image/{resized_question_image_keys[i]}"  # Adjust URL path as needed
+            item["question_image_url_resized"] = f"/image/{resized_image_keys[i * 5]}"  # Assuming 5 images per question
+
+            for j, key in enumerate(resized_image_keys[i * 5 + 1:i * 5 + 5]):
+                item["options"][j] = f"/image/{key}"
 
         return jsonify(images_and_questions)
     except Exception as e:
@@ -186,4 +191,3 @@ async def get_resized_image(image_key):
 
 if __name__ == "__main__":
     app.run(debug=True)
- 
