@@ -1,5 +1,7 @@
 langchain
-openai
+openai==0.28.0
 Flask
 gunicorn
 python-dotenv
+Pillow
+requests
