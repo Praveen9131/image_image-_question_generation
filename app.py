@@ -194,14 +194,18 @@ async def generate_content():
 
 @app.route('/image/<image_key>', methods=['GET'])
 async def get_image(image_key):
-    if image_key in image_store:
-        return await send_file(
-            BytesIO(image_store[image_key].getvalue()),
-            mimetype='image/png'
-        )
-    else:
-        return jsonify({"error": "Image not found"}), 404
+    try:
+        if image_key in image_store:
+            return await send_file(
+                BytesIO(image_store[image_key].getvalue()),
+                mimetype='image/png'
+            )
+        else:
+            logger.error(f"Image not found for key: {image_key}")
+            return jsonify({"error": "Image not found"}), 404
+    except Exception as e:
+        logger.error(f"Error retrieving image: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
- 
