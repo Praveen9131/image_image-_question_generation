@@ -7,6 +7,7 @@ from PIL import Image
 import aiohttp
 import asyncio
 from io import BytesIO
+from pathlib import Path
 
 # Load environment variables
 load_dotenv()
@@ -26,11 +27,12 @@ openai.api_key = openai_api_key
 
 app = Quart(__name__)
 
-# In-memory storage for images
-image_store = {}
+# Directory to store images
+image_dir = Path("image_store")
+image_dir.mkdir(parents=True, exist_ok=True)
 
 # Async function to download and resize image
-async def download_and_resize_image(image_url, target_size):
+async def download_and_resize_image(image_url, target_size, image_name):
     try:
         logger.info(f"Downloading image from URL: {image_url}")
         async with aiohttp.ClientSession() as session:
@@ -46,16 +48,11 @@ async def download_and_resize_image(image_url, target_size):
         resized_size = resized_image.size
         logger.info(f"Resized image size: {resized_size}")
 
-        output = BytesIO()
-        resized_image.save(output, format='PNG')
-        output.seek(0)
+        image_path = image_dir / image_name
+        resized_image.save(image_path, format='PNG')
 
-        # Generate a unique key for storing the image in memory
-        image_key = f"image_{len(image_store) + 1}.png"
-        image_store[image_key] = output
-
-        logger.info(f"Image resized and stored in memory with key: {image_key}")
-        return image_key
+        logger.info(f"Image resized and saved to file: {image_path}")
+        return str(image_path)
     except Exception as e:
         logger.error(f"Error resizing image: {e}")
         return None
@@ -150,13 +147,13 @@ async def generate_content():
         images_and_questions = []
         tasks = []
 
-        for _ in range(num_questions):
+        for i in range(num_questions):
             image_prompt = f"An illustration representing the topic: {topic}"
             tasks.append(generate_image(image_prompt))
 
         question_image_urls = await asyncio.gather(*tasks)
 
-        for question_image_url in question_image_urls:
+        for i, question_image_url in enumerate(question_image_urls):
             if not question_image_url:
                 return jsonify({"error": "Failed to generate question image"}), 500
 
@@ -168,31 +165,31 @@ async def generate_content():
             mcq_with_images["question_image_url"] = question_image_url
             images_and_questions.append(mcq_with_images)
 
-        # Resize images and store in memory
+        # Resize images and store in file system
         resize_tasks = []
 
-        for item in images_and_questions:
+        for i, item in enumerate(images_and_questions):
             question_image_url = item["question_image_url"]
-            resize_tasks.append(download_and_resize_image(question_image_url, (750, 319)))
+            resize_tasks.append(download_and_resize_image(question_image_url, (750, 319), f"question_image_{i+1}.png"))
 
         resized_question_images = await asyncio.gather(*resize_tasks[:num_questions])
 
         for i, item in enumerate(images_and_questions):
-            item["question_image_url_resized"] = f"/image/{resized_question_images[i]}"
+            item["question_image_url_resized"] = f"/image/question_image_{i+1}.png"
 
         resize_option_tasks = []
 
-        for item in images_and_questions:
-            for option_key in item["options"]:
+        for i, item in enumerate(images_and_questions):
+            for j, option_key in enumerate(item["options"]):
                 option_image_url = item["options"][option_key]
-                resize_option_tasks.append((option_key, download_and_resize_image(option_image_url, (270, 140))))
+                resize_option_tasks.append((option_key, download_and_resize_image(option_image_url, (270, 140), f"option_image_{i+1}_{j+1}.png")))
 
         resized_option_images = await asyncio.gather(*[task[1] for task in resize_option_tasks])
 
         option_counter = 0
-        for item in images_and_questions:
-            for option_key in list(item["options"].keys()):
-                item["options"][option_key + "_resized"] = f"/image/{resized_option_images[option_counter]}"
+        for i, item in enumerate(images_and_questions):
+            for j, option_key in enumerate(list(item["options"].keys())):
+                item["options"][option_key + "_resized"] = f"/image/option_image_{i+1}_{j+1}.png"
                 option_counter += 1
 
         return jsonify(images_and_questions)
@@ -200,16 +197,17 @@ async def generate_content():
         logger.error(f"Error generating content: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-@app.route('/image/<image_key>', methods=['GET'])
-async def get_image(image_key):
-    logger.info(f"Fetching image with key: {image_key}")
-    if image_key in image_store:
+@app.route('/image/<filename>', methods=['GET'])
+async def get_image(filename):
+    logger.info(f"Fetching image with filename: {filename}")
+    image_path = image_dir / filename
+    if image_path.exists():
         return await send_file(
-            BytesIO(image_store[image_key].getvalue()),
+            str(image_path),
             mimetype='image/png'
         )
     else:
-        logger.error(f"Image not found for key: {image_key}")
+        logger.error(f"Image not found: {filename}")
         return jsonify({"error": "Image not found"}), 404
 
 if __name__ == "__main__":
