@@ -32,6 +32,7 @@ image_store = {}
 # Async function to download and resize image
 async def download_and_resize_image(image_url, target_size):
     try:
+        logger.info(f"Downloading image from URL: {image_url}")
         async with aiohttp.ClientSession() as session:
             async with session.get(image_url) as response:
                 response.raise_for_status()
@@ -53,6 +54,7 @@ async def download_and_resize_image(image_url, target_size):
         image_key = f"image_{len(image_store) + 1}.png"
         image_store[image_key] = output
 
+        logger.info(f"Image resized and stored in memory with key: {image_key}")
         return image_key
     except Exception as e:
         logger.error(f"Error resizing image: {e}")
@@ -61,12 +63,15 @@ async def download_and_resize_image(image_url, target_size):
 # Function to generate an image using DALL-E 3
 async def generate_image(prompt: str):
     try:
+        logger.info(f"Generating image with prompt: {prompt}")
         response = await asyncio.to_thread(openai.Image.create,
                                            model="dall-e-3",
                                            prompt=prompt,
                                            n=1,
                                            size="1024x1024")
-        return response['data'][0]['url']
+        image_url = response['data'][0]['url']
+        logger.info(f"Image generated with URL: {image_url}")
+        return image_url
     except Exception as e:
         logger.error(f"Error generating image: {e}")
         return None
@@ -90,6 +95,7 @@ async def generate_mcq_with_image_options(description: str):
                                            max_tokens=1000,
                                            temperature=0.5)
         content = response.choices[0].message['content']
+        logger.info(f"MCQ content generated: {content}")
     except Exception as e:
         logger.error(f"Error generating MCQ with image options: {e}")
         return {"error": "Failed to generate MCQ"}
@@ -139,6 +145,8 @@ async def generate_content():
         topic = request.args.get('topic')
         num_questions = int(request.args.get('num_questions'))
 
+        logger.info(f"Generating content for topic: {topic} with {num_questions} questions")
+
         images_and_questions = []
         tasks = []
 
@@ -170,7 +178,7 @@ async def generate_content():
         resized_question_images = await asyncio.gather(*resize_tasks[:num_questions])
 
         for i, item in enumerate(images_and_questions):
-            item["question_image_url"] = f"/image/{resized_question_images[i]}"
+            item["question_image_url_resized"] = f"/image/{resized_question_images[i]}"
 
         resize_option_tasks = []
 
@@ -184,29 +192,24 @@ async def generate_content():
         option_counter = 0
         for item in images_and_questions:
             for option_key in list(item["options"].keys()):
-                item["options"][option_key] = f"/image/{resized_option_images[option_counter]}"
+                item["options"][option_key + "_resized"] = f"/image/{resized_option_images[option_counter]}"
                 option_counter += 1
 
-        response_data = [{
-            "question": item["question"],
-            "question_image_url": item["question_image_url"],
-            "options": item["options"],
-            "correct_answer": item["correct_answer"]
-        } for item in images_and_questions]
-
-        return jsonify(response_data)
+        return jsonify(images_and_questions)
     except Exception as e:
         logger.error(f"Error generating content: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 @app.route('/image/<image_key>', methods=['GET'])
 async def get_image(image_key):
+    logger.info(f"Fetching image with key: {image_key}")
     if image_key in image_store:
         return await send_file(
             BytesIO(image_store[image_key].getvalue()),
             mimetype='image/png'
         )
     else:
+        logger.error(f"Image not found for key: {image_key}")
         return jsonify({"error": "Image not found"}), 404
 
 if __name__ == "__main__":
