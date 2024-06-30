@@ -184,10 +184,17 @@ async def generate_content():
         option_counter = 0
         for item in images_and_questions:
             for option_key in list(item["options"].keys()):
-                item["options"][option_key + "_resized"] = f"/image/{resized_option_images[option_counter]}"
+                item["options"][option_key] = f"/image/{resized_option_images[option_counter]}"
                 option_counter += 1
 
-        return jsonify(images_and_questions)
+        response_data = [{
+            "question": item["question"],
+            "question_image_url": item["question_image_url_resized"],
+            "options": item["options"],
+            "correct_answer": item["correct_answer"]
+        } for item in images_and_questions]
+
+        return jsonify(response_data)
     except Exception as e:
         logger.error(f"Error generating content: {e}")
         return jsonify({"error": "Internal server error"}), 500
