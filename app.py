@@ -170,7 +170,7 @@ async def generate_content():
         resized_question_images = await asyncio.gather(*resize_tasks[:num_questions])
 
         for i, item in enumerate(images_and_questions):
-            item["question_image_url_resized"] = f"/image/{resized_question_images[i]}"
+            item["question_image_url"] = f"/image/{resized_question_images[i]}"
 
         resize_option_tasks = []
 
@@ -189,7 +189,7 @@ async def generate_content():
 
         response_data = [{
             "question": item["question"],
-            "question_image_url": item["question_image_url_resized"],
+            "question_image_url": item["question_image_url"],
             "options": item["options"],
             "correct_answer": item["correct_answer"]
         } for item in images_and_questions]
