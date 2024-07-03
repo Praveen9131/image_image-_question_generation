@@ -55,7 +55,7 @@ def generate_image_description(image_base64: str):
     ]
 
     response = openai.ChatCompletion.create(
-        model="gpt-4o",
+        model="gpt-4-vision-preview",
         messages=prompt,
         max_tokens=300,
     )
