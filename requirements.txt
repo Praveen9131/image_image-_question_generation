@@ -8,3 +8,4 @@ requests
 quart
 aiohttp
 uvicorn 
+gunicorn gevent
