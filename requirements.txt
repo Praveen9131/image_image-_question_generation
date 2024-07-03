@@ -8,4 +8,11 @@ requests
 quart
 aiohttp
 uvicorn 
-gunicorn gevent
+flask
+aiohttp
+pillow
+openai
+python-dotenv
+gunicorn
+gevent
+
